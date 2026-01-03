@@ -1,1 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Interval Timer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111">
+<style>
+  body {
+    background:#111;
+    color:#fff;
+    font-family:Arial, sans-serif;
+    text-align:center;
+    padding:20px;
+  }
+  input { width:90px; font-size:1em; margin:4px; }
+  button { font-size:1.1em; padding:10px 18px; margin:6px; }
+  #countdown { font-size:2.8em; margin-top:20px; }
+</style>
+</head>
+<body>
 
+<h2>Interval Timer</h2>
+
+<div>
+  <input id="min" type="number" value="2"> min
+  <input id="sec" type="number" value="0"> sec
+  <input id="ms" type="number" value="0"> ms
+</div>
+
+<div>
+  <input id="splits" type="number" value="168"> splits
+</div>
+
+<button onclick="start()">Start</button>
+<button onclick="stop()">Stop</button>
+<button onclick="reset()">Reset</button>
+
+<div id="countdown">00:00.000</div>
+<div id="info">Interval 0 / 0</div>
+
+<script>
+let timer=null, splitMs=0, totalSplits=0, currentSplit=0, splitStart=0, audioCtx=null;
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+function start(){
+  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(timer) return;
+
+  const totalMs=(+min.value*60000)+(+sec.value*1000)+(+ms.value);
+  totalSplits=+splits.value;
+  if(totalMs<=0||totalSplits<=0) return;
+
+  splitMs=totalMs/totalSplits;
+  currentSplit=0;
+  splitStart=performance.now();
+  updateInfo();
+
+  timer=setInterval(tick,10);
+}
+
+function tick(){
+  const now=performance.now();
+  const elapsed=now-splitStart;
+  const remaining=Math.max(0,splitMs-elapsed);
+  updateCountdown(remaining);
+
+  if(elapsed>=splitMs){
+    beep();
+    currentSplit++;
+    if(currentSplit>=totalSplits){
+      stop();
+      countdown.textContent="DONE";
+      return;
+    }
+    splitStart+=splitMs;
+    updateInfo();
+  }
+}
+
+function stop(){ clearInterval(timer); timer=null; }
+function reset(){
+  stop();
+  countdown.textContent="00:00.000";
+  info.textContent="Interval 0 / 0";
+}
+
+function beep(){
+  const o=audioCtx.createOscillator();
+  o.frequency.value=900;
+  o.connect(audioCtx.destination);
+  o.start();
+  setTimeout(()=>o.stop(),120);
+}
+
+function updateCountdown(ms){
+  const m=Math.floor(ms/60000);
+  const s=Math.floor(ms%60000/1000);
+  const mm=Math.floor(ms%1000);
+  countdown.textContent=
+    `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}.${String(mm).padStart(3,"0")}`;
+}
+
+function updateInfo(){
+  info.textContent=`Interval ${currentSplit} / ${totalSplits}`;
+}
+</script>
+</body>
+</html>
